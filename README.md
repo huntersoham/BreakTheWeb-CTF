@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚩 BreakTheWeb CTF
+<img src="https://raw.githubusercontent.com/huntersoham/BreakTheWeb-CTF/main/banner.svg" width="100%"/>
 
 ### A Hands-On Web Security CTF Platform (OWASP Top 10)
 
