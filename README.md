@@ -2,6 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/huntersoham/BreakTheWeb-CTF/main/banner.svg" width="100%"/>
 
+# 🚩 BreakTheWeb CTF
 ### A Hands-On Web Security CTF Platform (OWASP Top 10)
 
 *A minimal, hacker-style training platform where each level requires exploiting a real-world vulnerability.*
