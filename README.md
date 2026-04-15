@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🚩 VULN/CTF
+# 🚩 BreakTheWeb CTF
 
 ### A Hands-On Web Security CTF Platform (OWASP Top 10)
 
