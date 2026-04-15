@@ -1,0 +1,117 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 05 — The Open Archive</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="5">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>05</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 05</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A05 · MISCONFIGURATION</span>
+  </div>
+  <h1 class="level-title">THE OPEN ARCHIVE</h1>
+  <p class="level-subtitle">[ SECURITY MISCONFIGURATION ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// filesystem · recon</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">GET /level5/&lt;?&gt;</span></div>
+      <div class="t-line"><span class="t-out">This server has files it forgot to protect.</span></div>
+      <div class="t-line"><span class="t-out">Standard file paths. Common developer mistakes.</span></div>
+      <div class="t-line" style="margin-top:4px"><span class="t-prompt">$</span><span class="t-cmd">What do developers always leave behind?</span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:28px">
+    <div class="section-label">PATH EXPLORER</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+        Try accessing paths on this server. Some files are publicly reachable that shouldn't be.
+        <br>Use the browser address bar, DevTools, or Burp Suite to explore.
+      </p>
+      <div class="input-row">
+        <span class="inp-prefix">/level5/</span>
+        <input type="text" id="path-input" class="ctf-input" placeholder=".env" autocomplete="off"
+          onkeydown="if(event.key==='Enter') fetchPath()"/>
+        <button class="ctf-btn" onclick="fetchPath()">FETCH</button>
+      </div>
+      <div id="path-output" class="output-box" style="min-height:100px">No request yet. Try common file paths.</div>
+      <div style="margin-top:12px;font-size:11px;color:var(--text-dim)">
+        <span class="tag amber">COMMON PATHS</span>
+        <span style="color:var(--text-dim)">robots.txt &nbsp; .git/config &nbsp; config.bak &nbsp; .env &nbsp; backup.sql</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(5)"/>
+      <button class="ctf-btn" onclick="submitFlag(5)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(5,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(5,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(5,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 05 · OWASP A05:2021 — SECURITY MISCONFIGURATION</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `Not every vulnerability requires clever code.<br>
+Sometimes a server simply <em>forgets to lock a drawer</em>.<br><br>
+Developers leave traces: configuration files,<br>
+environment variables, backup archives.<br><br>
+The server is telling search engines what <em>not to index</em>.<br>
+That list is a <em>map</em>.`);
+
+async function fetchPath() {
+  const p = document.getElementById('path-input').value.trim();
+  const out = document.getElementById('path-output');
+  if (!p) return;
+  out.className = 'output-box'; out.textContent = 'Fetching /level5/' + p + ' ...';
+  try {
+    const r = await fetch('/level5/' + p);
+    const txt = await r.text();
+    out.className = 'output-box loaded';
+    out.innerHTML = `<span class="key">path:</span>   <span class="val">/level5/${p}</span>\n`
+      + `<span class="key">status:</span> <span class="${r.ok?'val':'val-red'}">${r.status} ${r.statusText}</span>\n`
+      + `<span class="key">body:</span>\n<span style="color:#aaffaa">${escHtml(txt.substring(0,2000))}</span>`;
+  } catch(e) { out.textContent = '✗ ' + e.message; }
+}
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body></html>

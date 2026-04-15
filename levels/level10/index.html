@@ -1,0 +1,269 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 10 — The Final Chain</title>
+<link rel="stylesheet" href="/ctf.css"/>
+<style>
+.chain-step{background:var(--panel);border:1px solid var(--border);border-left:3px solid var(--text-dim);padding:20px 24px;margin-bottom:16px;transition:border-color .3s}
+.chain-step.active{border-left-color:var(--green)}
+.chain-step.done{border-left-color:var(--amber)}
+.step-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.step-num{font-family:var(--font-head);font-size:18px;font-weight:900;color:var(--text-dim);min-width:32px}
+.chain-step.active .step-num{color:var(--green)}
+.chain-step.done .step-num{color:var(--amber)}
+.step-title{font-family:var(--font-head);font-size:12px;letter-spacing:2px;color:var(--text-dim)}
+.chain-step.active .step-title{color:var(--green)}
+.chain-step.done .step-title{color:var(--amber)}
+.step-tag{margin-left:auto;font-size:10px;padding:2px 8px;border:1px solid var(--text-dim);color:var(--text-dim);letter-spacing:1px}
+.chain-step.done .step-tag{border-color:var(--amber);color:var(--amber)}
+</style>
+</head>
+<body data-level="10">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>10</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 10</span><div class="level-dot"></div>
+    <span class="level-num">FINAL BOSS · CHAINED EXPLOITS</span>
+  </div>
+  <h1 class="level-title">THE FINAL CHAIN</h1>
+  <p class="level-subtitle">[ IDOR → SQLi → JWT FORGE · THREE LOCKS ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// vault · three-factor · lock</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">Three vulnerabilities. One chain. One flag.</span></div>
+      <div class="t-line"><span class="t-out">Lock 1: <span class="t-val">Find what isn't listed.</span></span></div>
+      <div class="t-line"><span class="t-out">Lock 2: <span class="t-val">Break the query.</span></span></div>
+      <div class="t-line"><span class="t-out">Lock 3: <span class="t-val">Forge the key.</span></span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <!-- CHAIN STEP 1: IDOR -->
+  <div class="chain-step active" id="step1-card">
+    <div class="step-header">
+      <div class="step-num">01</div>
+      <div class="step-title">IDOR — FIND THE HIDDEN USER</div>
+      <div class="step-tag">LOCK 1</div>
+    </div>
+    <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+      List the users. Notice the IDs. Not all users are listed — but all IDs are accessible.
+      Find the one that reveals a secret.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="ghost-btn" style="margin-top:0" onclick="listUsers()">▶ GET /api/users</button>
+    </div>
+    <div id="users-output" class="output-box">Not fetched yet.</div>
+    <div style="margin-top:10px">
+      <div class="input-row">
+        <span class="inp-prefix">USER ID</span>
+        <input type="number" id="userid-input" class="ctf-input" placeholder="try different IDs..." value="1"/>
+        <button class="ctf-btn" onclick="fetchUser()">FETCH</button>
+      </div>
+      <div id="userdata-output" class="output-box" style="margin-top:8px">Not fetched.</div>
+    </div>
+  </div>
+
+  <!-- CHAIN STEP 2: SQLi -->
+  <div class="chain-step" id="step2-card">
+    <div class="step-header">
+      <div class="step-num">02</div>
+      <div class="step-title">SQL INJECTION — REVEAL THE VAULT CODE</div>
+      <div class="step-tag">LOCK 2</div>
+    </div>
+    <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+      The vault has a lookup system. Some entries are hidden by a <code style="color:var(--amber)">visible=1</code> filter.
+      Break the query to see everything.
+    </p>
+    <div class="input-row">
+      <span class="inp-prefix">CODE</span>
+      <input type="text" id="lookup-input" class="ctf-input" placeholder="ALPHA-001" autocomplete="off"
+        onkeydown="if(event.key==='Enter') doLookup()"/>
+      <button class="ctf-btn" onclick="doLookup()">LOOKUP</button>
+    </div>
+    <div id="lookup-output" class="output-box" style="margin-top:8px">Not queried.</div>
+  </div>
+
+  <!-- CHAIN STEP 3: JWT -->
+  <div class="chain-step" id="step3-card">
+    <div class="step-header">
+      <div class="step-num">03</div>
+      <div class="step-title">JWT FORGE — ACCESS THE VAULT</div>
+      <div class="step-tag">LOCK 3</div>
+    </div>
+    <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+      Get a guest token, then use the secret discovered in Step 1 to forge a
+      <code style="color:var(--amber)">superadmin</code> token. Access the vault.
+    </p>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="ghost-btn" style="margin-top:0" onclick="getVaultToken()">▶ GET GUEST TOKEN</button>
+    </div>
+    <div id="vault-token-output" class="output-box" style="margin-bottom:10px">Not fetched.</div>
+    <p style="font-size:11px;color:var(--text-dim);margin-bottom:8px">
+      Modify the token (use jwt.io or manually re-sign with the secret from Step 1).
+      Change role to <span style="color:var(--amber)">superadmin</span>.
+    </p>
+    <div class="input-row">
+      <span class="inp-prefix">BEARER</span>
+      <input type="text" id="forged-token" class="ctf-input" placeholder="paste forged JWT..." autocomplete="off" spellcheck="false"/>
+      <button class="ctf-btn" onclick="accessVault()">UNLOCK</button>
+    </div>
+    <div id="vault-output" class="output-box" style="margin-top:8px">Vault locked.</div>
+  </div>
+
+  <div style="margin-bottom:32px;margin-top:24px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(10)"/>
+      <button class="ctf-btn" onclick="submitFlag(10)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(10,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(10,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(10,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 10 · CHAINED: IDOR + SQLi + JWT · FINAL BOSS</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `Three locks. Three keys. None of them obvious.<br><br>
+The first is a number that wasn't supposed to exist.<br>
+The second is a query that wasn't supposed to return everything.<br>
+The third is a signature you weren't supposed to be able to forge.<br><br>
+<em>Chain them.</em>`);
+
+function markDone(stepNum) {
+  const card = document.getElementById('step'+stepNum+'-card');
+  if(card){ card.classList.remove('active'); card.classList.add('done'); }
+  const next = document.getElementById('step'+(stepNum+1)+'-card');
+  if(next) next.classList.add('active');
+}
+
+async function listUsers() {
+  const out = document.getElementById('users-output');
+  out.textContent='Fetching...';
+  try {
+    const r = await fetch('/level10/api/users');
+    const d = await r.json();
+    out.className='output-box loaded';
+    out.innerHTML=`<span class="key">users listed:</span>\n`
+      +d.users.map(u=>`  <span class="key">id:</span><span class="val">${u.id}</span>  <span class="key">username:</span><span class="val-amber">${u.username}</span>`).join('\n')
+      +`\n<span style="color:var(--text-dim);font-size:11px">\n${d.note}</span>`;
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+
+async function fetchUser() {
+  const id = document.getElementById('userid-input').value;
+  const out = document.getElementById('userdata-output');
+  out.textContent='Fetching user '+id+'...';
+  try {
+    const r = await fetch('/level10/api/userdata/'+id);
+    const d = await r.json();
+    out.className='output-box loaded';
+    let html='';
+    for(const [k,v] of Object.entries(d)){
+      const cls = k==='secretFragment'||k==='jwtHint'?'val-red':k==='role'?'val-amber':'val';
+      html+=`<span class="key">${k}:</span> <span class="${cls}">${v}</span>\n`;
+    }
+    out.innerHTML=html;
+    if(d.secretFragment) markDone(1);
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+
+async function doLookup() {
+  const code = document.getElementById('lookup-input').value;
+  const out = document.getElementById('lookup-output');
+  out.textContent='Looking up...';
+  try {
+    const r = await fetch('/level10/api/lookup',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({code})
+    });
+    const d = await r.json();
+    out.className='output-box loaded';
+    if(d.query) out.innerHTML=`<span class="key">query:</span> <span class="val-amber">${d.query}</span>\n\n`;
+    else out.innerHTML='';
+    if(d.results&&d.results.length){
+      out.innerHTML+=`<table><tr><th>ID</th><th>CODE</th><th>LABEL</th><th>FRAGMENT</th></tr>`
+        +d.results.map(r=>`<tr><td>${r.id}</td><td>${r.code}</td><td>${r.label}</td><td class="val-red">${r.fragment||'—'}</td></tr>`).join('')
+        +`</table>`;
+      if(d.results.some(r=>r.fragment)) markDone(2);
+    } else {
+      out.innerHTML+='No results.';
+    }
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+
+async function getVaultToken() {
+  const out = document.getElementById('vault-token-output');
+  out.textContent='Requesting token...';
+  try {
+    const r = await fetch('/level10/api/vault/token',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+    const d = await r.json();
+    out.className='output-box loaded';
+    document.getElementById('forged-token').value = d.token||'';
+    const parts = (d.token||'').split('.');
+    let headerStr='', payloadStr='';
+    try{ headerStr=JSON.stringify(JSON.parse(atob(parts[0].replace(/-/g,'+').replace(/_/g,'/')))); }catch(e){}
+    try{ payloadStr=JSON.stringify(JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')))); }catch(e){}
+    out.innerHTML=`<span class="key">token:</span> <span class="val" style="word-break:break-all">${d.token}</span>\n`
+      +`<span class="key">header:</span>  <span class="val-amber">${headerStr}</span>\n`
+      +`<span class="key">payload:</span> <span class="val-amber">${payloadStr}</span>\n`
+      +`<span style="color:var(--text-dim);font-size:11px">\n${d.message}\nSign the modified token with the secret you found in Step 1.</span>`;
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+
+async function accessVault() {
+  const token = document.getElementById('forged-token').value.trim();
+  const out = document.getElementById('vault-output');
+  if(!token){ out.textContent='Paste a token first.'; return; }
+  out.textContent='Attempting vault access...';
+  try {
+    const r = await fetch('/level10/api/vault/access',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}
+    });
+    const d = await r.json();
+    out.className='output-box loaded';
+    let html='';
+    for(const [k,v] of Object.entries(d)){
+      const cls = k==='flag'?'val-red':k==='access'&&v==='VAULT_UNLOCKED'?'val':k==='steps'?'val-amber':'val-amber';
+      const display = Array.isArray(v)?v.join(' → '):v;
+      html+=`<span class="key">${k}:</span> <span class="${cls}">${display}</span>\n`;
+    }
+    out.innerHTML=html;
+    if(d.flag) markDone(3);
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+</script>
+</body></html>

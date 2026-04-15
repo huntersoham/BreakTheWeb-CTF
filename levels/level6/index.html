@@ -1,0 +1,175 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 06 — Signed, Unsigned</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="6">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>06</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 06</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A07 · AUTH FAILURE</span>
+  </div>
+  <h1 class="level-title">SIGNED, UNSIGNED</h1>
+  <p class="level-subtitle">[ BROKEN AUTHENTICATION · JWT ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// jwt · auth-flow</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">POST /level6/api/login → receive JWT</span></div>
+      <div class="t-line"><span class="t-out">Token: <span class="t-val" id="t-token" style="word-break:break-all">not issued yet</span></span></div>
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">GET /level6/api/dashboard → Authorization: Bearer &lt;token&gt;</span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <!-- Step 1: Login -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 1 — GET A TOKEN</div>
+    <div class="panel-card">
+      <div class="input-row">
+        <span class="inp-prefix">USER</span>
+        <input type="text" id="login-user" class="ctf-input" placeholder="any username" value="hacker" autocomplete="off"/>
+        <button class="ctf-btn" onclick="doLogin()">LOGIN</button>
+      </div>
+      <div id="login-output" class="output-box" style="margin-top:10px">Login to receive a JWT token.</div>
+    </div>
+  </div>
+
+  <!-- Step 2: Inspect / modify token -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 2 — INSPECT &amp; MODIFY TOKEN</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:12px">
+        Decode your token at <span style="color:var(--green)">jwt.io</span> or in the DevTools console:
+        <code style="color:var(--amber)">atob(token.split('.')[1])</code>
+        — then modify and re-encode with the right technique.
+      </p>
+      <div id="decoded-output" class="output-box" style="min-height:60px">Token not decoded yet. Login first.</div>
+    </div>
+  </div>
+
+  <!-- Step 3: Call dashboard with modified token -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 3 — CALL DASHBOARD WITH YOUR TOKEN</div>
+    <div class="panel-card">
+      <div class="input-row">
+        <span class="inp-prefix">BEARER</span>
+        <input type="text" id="token-input" class="ctf-input" placeholder="paste modified JWT here..." autocomplete="off" spellcheck="false"/>
+        <button class="ctf-btn" onclick="callDashboard()">ACCESS</button>
+      </div>
+      <div id="dashboard-output" class="output-box" style="margin-top:10px">Dashboard not accessed yet.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(6)"/>
+      <button class="ctf-btn" onclick="submitFlag(6)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(6,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(6,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(6,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 06 · OWASP A07:2021 — IDENTIFICATION &amp; AUTH FAILURES</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `A token proves who you are.<br>
+It is signed — or so the server <em>hopes</em>.<br><br>
+Three parts, separated by dots.<br>
+The middle part is a <em>claim</em>. Claims can be rewritten.<br><br>
+What if the server accepts a token<br>
+that requires <em>no signature at all?</em>`);
+
+let currentToken = '';
+
+function decodeTokenPart(part) {
+  try {
+    const pad = part.replace(/-/g,'+').replace(/_/g,'/');
+    return JSON.parse(atob(pad + '=='.slice(0,(4-pad.length%4)%4)));
+  } catch(e) { return null; }
+}
+
+async function doLogin() {
+  const user = document.getElementById('login-user').value.trim() || 'hacker';
+  const out = document.getElementById('login-output');
+  const decoded = document.getElementById('decoded-output');
+  out.textContent = 'Logging in...';
+  try {
+    const r = await fetch('/level6/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username: user })
+    });
+    const d = await r.json();
+    if (!d.token) { out.textContent = '✗ ' + (d.error||'Failed'); return; }
+    currentToken = d.token;
+    document.getElementById('token-input').value = d.token;
+    document.getElementById('t-token').textContent = d.token.substring(0,60) + '...';
+    out.className = 'output-box loaded';
+    out.innerHTML = `<span class="key">token:</span> <span class="val" style="word-break:break-all">${d.token}</span>\n<span class="key">msg:</span>   <span class="val-amber">${d.message}</span>`;
+
+    const parts = d.token.split('.');
+    const header = decodeTokenPart(parts[0]);
+    const payload = decodeTokenPart(parts[1]);
+    decoded.className = 'output-box loaded';
+    decoded.innerHTML = `<span class="key">HEADER:</span>  <span class="val">${JSON.stringify(header)}</span>\n`
+      + `<span class="key">PAYLOAD:</span> <span class="val">${JSON.stringify(payload)}</span>\n`
+      + `<span class="val-amber">\nHint: change "role" to "admin". Figure out how to make it accepted.\nTwo methods exist. One involves the algorithm. One involves the secret.</span>`;
+  } catch(e) { out.textContent = '✗ ' + e.message; }
+}
+
+async function callDashboard() {
+  const token = document.getElementById('token-input').value.trim();
+  const out = document.getElementById('dashboard-output');
+  if (!token) { out.textContent = 'Paste a JWT token above.'; return; }
+  out.className = 'output-box'; out.textContent = 'Calling dashboard...';
+  try {
+    const r = await fetch('/level6/api/dashboard', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    const d = await r.json();
+    out.className = 'output-box loaded';
+    let html = '';
+    for (const [k,v] of Object.entries(d)) {
+      const cls = k==='flag' ? 'val-red' : k==='access'&&v==='ADMIN_PANEL' ? 'val' : 'val-amber';
+      html += `<span class="key">${k}:</span> <span class="${cls}">${v}</span>\n`;
+    }
+    out.innerHTML = html;
+  } catch(e) { out.textContent = '✗ ' + e.message; }
+}
+</script>
+</body></html>

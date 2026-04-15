@@ -1,0 +1,181 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 07 — The Silent Parameter</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="7">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>07</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 07</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A04 · INSECURE DESIGN</span>
+  </div>
+  <h1 class="level-title">THE SILENT PARAMETER</h1>
+  <p class="level-subtitle">[ MASS ASSIGNMENT · PRIVILEGE ESCALATION ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// registration · api</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">POST /level7/api/register</span></div>
+      <div class="t-line"><span class="t-out">Body: <span class="t-val">{ "username": "...", "password": "..." }</span></span></div>
+      <div class="t-line"><span class="t-out">The form asks for two fields. The server may accept <span class="t-val">more</span>.</span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <!-- Register -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 1 — REGISTER AN ACCOUNT</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+        The form shows two fields. But the API may accept additional fields silently.
+        Use Burp Suite or DevTools to intercept and modify the request body before sending.
+      </p>
+      <div class="input-row" style="margin-bottom:8px">
+        <span class="inp-prefix">USERNAME</span>
+        <input type="text" id="reg-user" class="ctf-input" placeholder="choose a username" autocomplete="off"/>
+      </div>
+      <div class="input-row" style="margin-bottom:8px">
+        <span class="inp-prefix">PASSWORD</span>
+        <input type="password" id="reg-pass" class="ctf-input" placeholder="choose a password" autocomplete="off"/>
+      </div>
+      <button class="ghost-btn" onclick="doRegister()">▶ REGISTER (intercept me)</button>
+      <div id="reg-output" class="output-box" style="margin-top:10px">Not registered yet.</div>
+    </div>
+  </div>
+
+  <!-- Login -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 2 — LOGIN</div>
+    <div class="panel-card">
+      <div class="input-row" style="margin-bottom:8px">
+        <span class="inp-prefix">USERNAME</span>
+        <input type="text" id="login-user" class="ctf-input" placeholder="username" autocomplete="off"/>
+      </div>
+      <div class="input-row">
+        <span class="inp-prefix">PASSWORD</span>
+        <input type="password" id="login-pass" class="ctf-input" placeholder="password" autocomplete="off"/>
+        <button class="ctf-btn" onclick="doLogin()">LOGIN</button>
+      </div>
+      <div id="login-output" class="output-box" style="margin-top:10px">Not logged in.</div>
+    </div>
+  </div>
+
+  <!-- Profile -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 3 — CHECK YOUR PROFILE</div>
+    <div class="panel-card">
+      <button class="ghost-btn" onclick="getProfile()">▶ GET /api/profile</button>
+      <div id="profile-output" class="output-box" style="margin-top:10px">Login first.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(7)"/>
+      <button class="ctf-btn" onclick="submitFlag(7)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(7,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(7,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(7,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 07 · OWASP A04:2021 — INSECURE DESIGN</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `The form asks for a username and a password.<br>
+Two fields. Simple registration.<br><br>
+But APIs don't enforce what the form shows.<br>
+What if you sent a <em>third field</em>?<br><br>
+What if the server applied <em>everything</em> you gave it<br>
+without asking whether it should?`);
+
+async function doRegister() {
+  const u = document.getElementById('reg-user').value.trim();
+  const p = document.getElementById('reg-pass').value.trim();
+  const out = document.getElementById('reg-output');
+  if (!u||!p) { out.textContent='Fill in username and password.'; return; }
+  out.textContent = 'Registering...';
+  // NOTE: This sends the standard form. To exploit, player must use Burp/DevTools
+  // and add "role":"admin" or "isAdmin":true to the JSON body.
+  try {
+    const r = await fetch('/level7/api/register', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username:u, password:p })
+    });
+    const d = await r.json();
+    out.className = 'output-box loaded';
+    out.innerHTML = Object.entries(d).map(([k,v])=>
+      `<span class="key">${k}:</span> <span class="val-amber">${v}</span>`).join('\n');
+    document.getElementById('login-user').value = u;
+    document.getElementById('login-pass').value = p;
+  } catch(e) { out.textContent='✗ '+e.message; }
+}
+
+async function doLogin() {
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value.trim();
+  const out = document.getElementById('login-output');
+  out.textContent='Logging in...';
+  try {
+    const r = await fetch('/level7/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username:u, password:p })
+    });
+    const d = await r.json();
+    out.className='output-box loaded';
+    out.innerHTML = Object.entries(d).map(([k,v])=>
+      `<span class="key">${k}:</span> <span class="${k==='role'?'val-amber':'val'}">${v}</span>`).join('\n');
+  } catch(e) { out.textContent='✗ '+e.message; }
+}
+
+async function getProfile() {
+  const out = document.getElementById('profile-output');
+  out.textContent='Fetching...';
+  try {
+    const r = await fetch('/level7/api/profile');
+    const d = await r.json();
+    out.className='output-box loaded';
+    let html='';
+    for(const [k,v] of Object.entries(d)){
+      const cls = k==='flag'?'val-red':k==='role'||k==='isAdmin'?'val-amber':'val';
+      html+=`<span class="key">${k}:</span> <span class="${cls}">${v}</span>\n`;
+    }
+    out.innerHTML=html;
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+</script>
+</body></html>

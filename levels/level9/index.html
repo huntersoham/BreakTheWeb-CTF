@@ -1,0 +1,179 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 09 — The Forged Signature</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="9">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>09</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 09</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A01 · CSRF</span>
+  </div>
+  <h1 class="level-title">THE FORGED SIGNATURE</h1>
+  <p class="level-subtitle">[ CROSS-SITE REQUEST FORGERY ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// admin-panel · state-change</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">POST /level9/api/admin/promote</span></div>
+      <div class="t-line"><span class="t-out">Body: <span class="t-val">{ "target": "guest", "action": "promote" }</span></span></div>
+      <div class="t-line"><span class="t-out">Requires: <span class="t-val">session cookie</span> — but NO CSRF token.</span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <!-- Step 1: Login -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 1 — LOGIN AS GUEST</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+        Credentials: <span style="color:var(--green)">guest / guest</span>
+        — this sets a session cookie. Inspect it in DevTools → Application → Cookies.
+      </p>
+      <button class="ghost-btn" onclick="doLogin()">▶ LOGIN (guest/guest)</button>
+      <div id="login-output" class="output-box" style="margin-top:10px">Not logged in.</div>
+    </div>
+  </div>
+
+  <!-- Step 2: Check current role -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 2 — CHECK YOUR CURRENT ROLE</div>
+    <div class="panel-card">
+      <button class="ghost-btn" onclick="checkMe()">▶ GET /api/me</button>
+      <div id="me-output" class="output-box" style="margin-top:10px">Not checked.</div>
+    </div>
+  </div>
+
+  <!-- Step 3: Forge the CSRF request -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 3 — CALL THE PRIVILEGED ENDPOINT DIRECTLY</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+        The promote endpoint requires only a session cookie — no CSRF token.
+        Call it directly from this page. In a real attack this could come from any origin.
+        <br><br>Use your session cookie OR the Authorization header below.
+      </p>
+      <div class="input-row" style="margin-bottom:8px">
+        <span class="inp-prefix">SESSION</span>
+        <input type="text" id="session-input" class="ctf-input" placeholder="paste l9_session cookie value here (or leave blank to use cookie)" autocomplete="off"/>
+      </div>
+      <button class="ghost-btn" onclick="forgeCSRF()">▶ FORGE: POST /api/admin/promote</button>
+      <div id="csrf-output" class="output-box" style="margin-top:10px">Not attempted yet.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(9)"/>
+      <button class="ctf-btn" onclick="submitFlag(9)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(9,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(9,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(9,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 09 · OWASP A01:2021 — CSRF / BROKEN ACCESS CONTROL</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `The server changes state when asked politely.<br>
+But it never checks <em>who is really asking</em>.<br><br>
+A session cookie proves you logged in.<br>
+It does not prove the request was <em>intentional</em>.<br><br>
+No CSRF token. No origin check.<br>
+The door opens for <em>anyone who knows to knock</em>.`);
+
+let sessionToken = '';
+
+async function doLogin() {
+  const out = document.getElementById('login-output');
+  out.textContent = 'Logging in...';
+  try {
+    const r = await fetch('/level9/api/login', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username:'guest', password:'guest' })
+    });
+    const d = await r.json();
+    // Extract the session cookie value
+    const match = document.cookie.match(/l9_session=([^;]+)/);
+    if(match) {
+      sessionToken = match[1];
+      document.getElementById('session-input').value = sessionToken;
+    }
+    out.className='output-box loaded';
+    out.innerHTML=`<span class="key">status:</span> <span class="val">${d.message}</span>\n`
+      +`<span class="key">cookie:</span> <span class="val-amber">l9_session=${sessionToken||'(check DevTools)'}</span>`;
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+
+async function checkMe() {
+  const out = document.getElementById('me-output');
+  out.textContent='Checking...';
+  try {
+    const r = await fetch('/level9/api/me');
+    const d = await r.json();
+    out.className='output-box loaded';
+    out.innerHTML=Object.entries(d).map(([k,v])=>
+      `<span class="key">${k}:</span> <span class="${k==='role'?'val-amber':'val'}">${v}</span>`).join('\n');
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+
+async function forgeCSRF() {
+  const out = document.getElementById('csrf-output');
+  const sessionVal = document.getElementById('session-input').value.trim();
+  out.textContent = 'Forging CSRF request...';
+
+  const headers = { 'Content-Type':'application/json' };
+  if(sessionVal) headers['Authorization'] = 'Bearer ' + sessionVal;
+
+  try {
+    const r = await fetch('/level9/api/admin/promote', {
+      method:'POST',
+      headers,
+      body: JSON.stringify({ target:'guest', action:'promote' })
+    });
+    const d = await r.json();
+    out.className='output-box loaded';
+    let html='';
+    for(const [k,v] of Object.entries(d)){
+      const cls = k==='flag'?'val-red':k==='role'?'val-amber':'val';
+      html+=`<span class="key">${k}:</span> <span class="${cls}">${v}</span>\n`;
+    }
+    out.innerHTML=html;
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+</script>
+</body></html>

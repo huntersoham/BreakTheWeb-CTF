@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 01 — The Forgotten Door</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="1">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>01</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 01</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A01 · BROKEN ACCESS CONTROL</span>
+  </div>
+  <h1 class="level-title">THE FORGOTTEN DOOR</h1>
+  <p class="level-subtitle">[ INSECURE DIRECT OBJECT REFERENCE ]</p>
+  <div class="riddle-panel"><div class="riddle-text" id="riddle-typed"></div></div>
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// network · cookie · recon</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">GET /level1/api/profile</span></div>
+      <div class="t-line"><span class="t-out">Cookie: user_id=<span class="t-val" id="t-uid">...</span></span></div>
+      <div class="t-line"><span class="t-out">Status: <span class="t-val">200 OK</span></span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+  <div style="margin-bottom:28px">
+    <div class="section-label">YOUR PROFILE</div>
+    <div class="panel-card">
+      <div id="profile-output" class="output-box">Awaiting profile fetch...</div>
+      <button class="ghost-btn" onclick="loadProfile()">FETCH /api/profile</button>
+    </div>
+  </div>
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off" onkeydown="if(event.key==='Enter') submitFlag(1)"/>
+      <button class="ctf-btn" onclick="submitFlag(1)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(1,1)">HINT 1 VAGUE</button>
+          <button class="hint-btn" onclick="getHint(1,2)">HINT 2 DIRECTIONAL</button>
+          <button class="hint-btn" onclick="getHint(1,3)">HINT 3 NEAR REVEAL</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF LEVEL 01 OWASP A01:2021 BROKEN ACCESS CONTROL</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed','Not everything hidden is invisible.<br>The system sees you — but does it <em>know</em> you?<br><br>You were given a number when you arrived.<br>Numbers can be changed.<br><br><em>Who else has a number?</em>');
+document.addEventListener('DOMContentLoaded',()=>{
+  const m=document.cookie.match(/(?:^|;\s*)user_id=([^;]+)/);
+  const el=document.getElementById('t-uid');
+  if(el) el.textContent=m?m[1]:'???';
+});
+async function loadProfile(){
+  const out=document.getElementById('profile-output');
+  out.className='output-box';out.textContent='Fetching...';
+  try{
+    const r=await fetch('/level1/api/profile');
+    const d=await r.json();
+    out.className='output-box loaded';
+    let html='';
+    for(const [k,v] of Object.entries(d)){
+      const cls=k==='flag'?'val-red':k==='role'?'val-amber':'val';
+      html+=`<span class="key">${k}:</span> <span class="${cls}">${v}</span>\n`;
+    }
+    out.innerHTML=html;
+  }catch(e){out.textContent='Error: '+e.message;}
+}
+</script>
+</body></html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 02 — The Whispering Box</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="2">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>02</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 02</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A03 · INJECTION</span>
+  </div>
+  <h1 class="level-title">THE WHISPERING BOX</h1>
+  <p class="level-subtitle">[ DATABASE CHALLENGE ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// product-search · api</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">GET /level2/api/search?q=&lt;your_input&gt;</span></div>
+      <div class="t-line"><span class="t-out">Query: <span class="t-val" id="t-query">SELECT * FROM products WHERE name LIKE '%...%' AND visible=1</span></span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:28px">
+    <div class="section-label">PRODUCT SEARCH</div>
+    <div class="panel-card">
+      <div class="input-row">
+        <span class="inp-prefix">SEARCH</span>
+        <input type="text" id="search-input" class="ctf-input" placeholder="search products..." autocomplete="off"
+          onkeydown="if(event.key==='Enter') doSearch()"/>
+        <button class="ctf-btn" onclick="doSearch()">QUERY</button>
+      </div>
+      <div id="search-output" class="output-box">No query yet. Search for a product above.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(2)"/>
+      <button class="ctf-btn" onclick="submitFlag(2)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(2,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(2,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(2,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 02 · OWASP A03:2021 — INJECTION</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `The search box listens to everything you say.<br>
+But what language is it <em>really</em> speaking?<br><br>
+The database has rows it isn't showing you.<br>
+Every filter has a <em>weakness</em>.<br><br>
+What happens when your input becomes part of the <em>command itself?</em>`);
+
+async function doSearch() {
+  const q = document.getElementById('search-input').value;
+  const out = document.getElementById('search-output');
+  const tq = document.getElementById('t-query');
+  out.className = 'output-box'; out.textContent = 'Querying...';
+  try {
+    const r = await fetch('/level2/api/search?q=' + encodeURIComponent(q));
+    const d = await r.json();
+    if (tq) tq.textContent = d.sql || '';
+    if (!d.results || d.results.length === 0) {
+      out.textContent = 'No results found.'; return;
+    }
+    out.className = 'output-box loaded';
+    let html = '<table><tr><th>ID</th><th>NAME</th><th>PRICE</th><th>CATEGORY</th><th>CLASSIFIED</th></tr>';
+    d.results.forEach(r => {
+      const cls = r.classified ? 'val-red' : 'val';
+      html += `<tr><td>${r.id}</td><td class="${r.classified?'val-red':''}">${r.name}</td><td>${r.price}</td><td>${r.category}</td><td class="val-red">${r.classified||'—'}</td></tr>`;
+    });
+    html += '</table>';
+    out.innerHTML = html;
+  } catch(e) { out.textContent = 'Error: ' + e.message; }
+}
+</script>
+</body></html>

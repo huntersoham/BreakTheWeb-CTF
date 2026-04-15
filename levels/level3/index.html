@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 03 — The Trusted Messenger</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="3">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>03</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 03</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A10 · SSRF</span>
+  </div>
+  <h1 class="level-title">THE TRUSTED MESSENGER</h1>
+  <p class="level-subtitle">[ SERVER-SIDE REQUEST FORGERY ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// url-preview · service</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">POST /level3/api/preview</span></div>
+      <div class="t-line"><span class="t-out">Body: <span class="t-val">{ "url": "https://..." }</span></span></div>
+      <div class="t-line"><span class="t-out">The server fetches the URL on your behalf.</span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:28px">
+    <div class="section-label">URL PREVIEW SERVICE</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">Enter any URL and our server will fetch a preview for you.</p>
+      <div class="input-row">
+        <span class="inp-prefix">URL</span>
+        <input type="text" id="url-input" class="ctf-input" placeholder="https://example.com" autocomplete="off"
+          onkeydown="if(event.key==='Enter') doFetch()"/>
+        <button class="ctf-btn" onclick="doFetch()">FETCH</button>
+      </div>
+      <div id="fetch-output" class="output-box">No request sent yet.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(3)"/>
+      <button class="ctf-btn" onclick="submitFlag(3)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(3,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(3,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(3,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 03 · OWASP A10:2021 — SSRF</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `This service fetches URLs so you don't have to.<br>
+How <em>convenient</em>.<br><br>
+The server has access to networks you cannot reach.<br>
+Internal services trust requests that come from <em>inside</em>.<br><br>
+What if you could make the server ask questions on your behalf?<br>
+What doors are open to it that are <em>closed to you?</em>`);
+
+async function doFetch() {
+  const url = document.getElementById('url-input').value.trim();
+  const out = document.getElementById('fetch-output');
+  if (!url) { out.textContent = 'Enter a URL first.'; return; }
+  out.className = 'output-box'; out.textContent = 'Server fetching...';
+  try {
+    const r = await fetch('/level3/api/preview', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ url })
+    });
+    const d = await r.json();
+    if (d.error) {
+      out.textContent = '✗ Error: ' + d.error;
+      return;
+    }
+    out.className = 'output-box loaded';
+    out.innerHTML = `<span class="key">fetched:</span> <span class="val">${d.fetched}</span>\n`
+      + `<span class="key">status:</span>  <span class="val">${d.status}</span>\n`
+      + `<span class="key">type:</span>    <span class="val">${d.contentType}</span>\n`
+      + `<span class="key">body:</span>\n<span style="color:#aaffaa">${escHtml(d.body)}</span>`;
+  } catch(e) {
+    out.textContent = '✗ ' + e.message;
+  }
+}
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body></html>

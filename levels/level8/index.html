@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>CTF // LEVEL 08 — The Helpful Detour</title>
+<link rel="stylesheet" href="/ctf.css"/>
+</head>
+<body data-level="8">
+<nav class="topbar">
+  <a class="topbar-logo" href="/">VULN/CTF</a>
+  <div class="topbar-status">
+    <div class="status-item">LEVEL <span>08</span>/10</div>
+    <div class="status-item">HINTS <span class="hint-counter" id="nav-hints">4</span> LEFT</div>
+    <div class="status-item" id="nav-solved" style="display:none">✓ SOLVED</div>
+  </div>
+</nav>
+<div class="wrapper">
+  <div class="level-badge">
+    <span class="level-num">LEVEL 08</span><div class="level-dot"></div>
+    <span class="level-num">OWASP A01 · OPEN REDIRECT</span>
+  </div>
+  <h1 class="level-title">THE HELPFUL DETOUR</h1>
+  <p class="level-subtitle">[ OPEN REDIRECT · TOKEN LEAKAGE ]</p>
+
+  <div class="riddle-panel">
+    <div class="riddle-text" id="riddle-typed"></div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot red"></div><div class="t-dot yellow"></div><div class="t-dot green"></div>
+      <span class="terminal-title">// login · redirect-flow</span>
+    </div>
+    <div class="terminal-body">
+      <div class="t-line"><span class="t-prompt">$</span><span class="t-cmd">POST /level8/api/login?next=<span class="t-val">/level8/dashboard</span></span></div>
+      <div class="t-line"><span class="t-out">After login, server redirects to: <span class="t-val">next + ?auth_token=&lt;TOKEN&gt;</span></span></div>
+      <div class="t-line"><span class="t-out">The <span class="t-val">next</span> param is not validated.</span></div>
+      <div class="t-line" style="margin-top:8px"><span class="t-prompt">_</span><span class="t-blink"></span></div>
+    </div>
+  </div>
+
+  <!-- Step 1: Normal login -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 1 — OBSERVE THE LOGIN FLOW</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+        Credentials: <span style="color:var(--green)">guest / guest123</span>
+        — login appends <code style="color:var(--amber)">?auth_token=</code> to the redirect URL.
+        What controls where it redirects?
+      </p>
+      <div class="input-row">
+        <span class="inp-prefix">NEXT=</span>
+        <input type="text" id="next-input" class="ctf-input" value="/level8/dashboard" autocomplete="off"/>
+        <button class="ctf-btn" onclick="doLogin()">LOGIN</button>
+      </div>
+      <div id="login-output" class="output-box" style="margin-top:10px">Not logged in yet.</div>
+    </div>
+  </div>
+
+  <!-- Step 2: Steal endpoint -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 2 — POINT REDIRECT TO STEAL ENDPOINT</div>
+    <div class="panel-card">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:14px">
+        There is an endpoint <span style="color:var(--green)">/level8/api/steal</span> that logs any token it receives.
+        Set <code style="color:var(--amber)">next=/level8/api/steal</code> and login — the token will be sent there.
+      </p>
+      <button class="ghost-btn" onclick="doStolenLogin()">▶ LOGIN WITH REDIRECT → /api/steal</button>
+      <div id="steal-output" class="output-box" style="margin-top:10px">Not attempted yet.</div>
+    </div>
+  </div>
+
+  <!-- Step 3: View steal endpoint directly -->
+  <div style="margin-bottom:24px">
+    <div class="section-label">STEP 3 — CHECK WHAT WAS RECEIVED</div>
+    <div class="panel-card">
+      <button class="ghost-btn" onclick="checkSteal()">▶ GET /api/steal (no token)</button>
+      <div id="check-output" class="output-box" style="margin-top:10px">Not checked yet.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:32px">
+    <div class="section-label">FLAG SUBMISSION</div>
+    <div class="flag-wrap">
+      <div class="flag-prefix">FLAG{</div>
+      <input type="text" id="flag-input" class="ctf-input" placeholder="...your_flag_here...}" autocomplete="off"
+        onkeydown="if(event.key==='Enter') submitFlag(8)"/>
+      <button class="ctf-btn" onclick="submitFlag(8)">SUBMIT</button>
+    </div>
+    <div id="feedback"></div>
+  </div>
+
+  <div>
+    <div class="section-label">HINTS</div>
+    <div class="hint-panel">
+      <div class="hint-header" onclick="toggleHintPanel()">
+        <span class="hint-title">⚠ REQUEST A HINT</span>
+        <span class="hint-cost" id="hint-cost-label">Costs 1 of your 4 global hints</span>
+      </div>
+      <div class="hint-body" id="hint-body">
+        <div class="hint-btns">
+          <button class="hint-btn" onclick="getHint(8,1)">HINT 1</button>
+          <button class="hint-btn" onclick="getHint(8,2)">HINT 2</button>
+          <button class="hint-btn" onclick="getHint(8,3)">HINT 3</button>
+        </div>
+        <div id="hint-text"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">VULN/CTF · LEVEL 08 · OWASP A01:2021 — BROKEN ACCESS CONTROL (OPEN REDIRECT)</div>
+</div>
+<script src="/ctf.js"></script>
+<script>
+typeText('riddle-typed', `After login, the server sends you <em>somewhere</em>.<br>
+It appends a token to wherever it sends you.<br><br>
+The destination is controlled by a parameter.<br>
+The parameter is not <em>validated</em>.<br><br>
+If you control the destination,<br>
+you control where the <em>token lands</em>.`);
+
+async function doLogin() {
+  const next = document.getElementById('next-input').value.trim() || '/level8/dashboard';
+  const out = document.getElementById('login-output');
+  out.textContent = 'Logging in...';
+  try {
+    const r = await fetch('/level8/api/login?next=' + encodeURIComponent(next), {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username:'guest', password:'guest123' })
+    });
+    const d = await r.json();
+    out.className = 'output-box loaded';
+    let html='';
+    for(const [k,v] of Object.entries(d)){
+      html+=`<span class="key">${k}:</span> <span class="val-amber">${v}</span>\n`;
+    }
+    out.innerHTML = html;
+  } catch(e) { out.textContent='✗ '+e.message; }
+}
+
+async function doStolenLogin() {
+  const out = document.getElementById('steal-output');
+  out.textContent='Logging in with redirect to /api/steal...';
+  try {
+    const r = await fetch('/level8/api/login?next=/level8/api/steal', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username:'guest', password:'guest123' })
+    });
+    const d = await r.json();
+    // The redirect URL contains the token — simulate following it
+    if(d.redirect){
+      const stealUrl = d.redirect;
+      out.className='output-box loaded';
+      out.innerHTML = `<span class="key">redirect_url:</span> <span class="val-red">${stealUrl}</span>\n<span class="val-amber">\nNow follow that URL — the token is in it.\nOr call /api/steal directly with the auth_token param from the URL above.</span>`;
+      // Auto-follow the redirect
+      const followR = await fetch(stealUrl);
+      const followD = await followR.json();
+      out.innerHTML += `\n\n<span class="key">steal_endpoint_received:</span>\n`;
+      for(const [k,v] of Object.entries(followD)){
+        const cls = k==='decoded'&&String(v).startsWith('FLAG{')?'val-red':'val';
+        out.innerHTML += `<span class="key">  ${k}:</span> <span class="${cls}">${v}</span>\n`;
+      }
+    }
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+
+async function checkSteal() {
+  const out = document.getElementById('check-output');
+  out.textContent='Checking...';
+  try {
+    const r = await fetch('/level8/api/steal');
+    const d = await r.json();
+    out.className='output-box loaded';
+    out.innerHTML = Object.entries(d).map(([k,v])=>
+      `<span class="key">${k}:</span> <span class="val-amber">${v}</span>`).join('\n');
+  } catch(e){ out.textContent='✗ '+e.message; }
+}
+</script>
+</body></html>
